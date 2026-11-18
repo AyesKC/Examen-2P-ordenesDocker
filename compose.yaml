@@ -1,0 +1,87 @@
+services:
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: db
+
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD}
+
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 1G
+
+    ports:
+      - "1433:1433"
+
+    volumes:
+      - sql_data:/var/opt/mssql
+
+    networks:
+      - ordenes_net
+
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo 'SELECT 1'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+
+    container_name: api
+
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M 
+    
+    environment:
+      DB_SERVER: ${DB_SERVER}
+      DB_USER: ${DB_USER}
+      SA_PASSWORD: ${SA_PASSWORD}
+      DB_NAME: ${DB_NAME}
+
+    ports:
+      - "5000:5000"
+
+    networks:
+      - ordenes_net
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+
+    container_name: web
+  
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+
+    ports:
+      - "8000:8000"
+
+    networks:
+      - ordenes_net
+
+    depends_on:
+      api:
+        condition: service_started
+
+networks:
+  ordenes_net:
+    driver: bridge
+
+volumes:
+  sql_data:
